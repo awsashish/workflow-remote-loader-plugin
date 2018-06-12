@@ -42,7 +42,11 @@ class FileLoaderDSLImpl implements Serializable {
   public Object fromGit(String libPath, String repoUrl = DEFAULT_REPO_URL, String repoBranch = DEFAULT_BRANCH, 
     String credentialsId = null, labelExpression = '') {
       Object res;
-      withGit(repoUrl, repoBranch, credentialsId, labelExpression) {
+      // You can open this commented code if you want to run jenkinsfile.groovy on separate node
+      //withGit(repoUrl, repoBranch, credentialsId, labelExpression) {
+      //  res = load(libPath)
+      //}
+      withSeynseGit(repoUrl, repoBranch, credentialsId, labelExpression) {
         res = load(libPath)
       }
       return res
@@ -71,6 +75,27 @@ class FileLoaderDSLImpl implements Serializable {
       }
     }
   }
+  
+  public <V> V withSeynseGit(String repoUrl = DEFAULT_REPO_URL, String repoBranch = DEFAULT_BRANCH, 
+        String credentialsId = null, labelExpression = '', Closure<V> body) {
+    Map<String, Object> loaded = new TreeMap<String, Object>()
+        script.dir(TMP_FOLDER) {
+          // Flush the directory
+          script.deleteDir()
+
+          // Checkout
+          script.echo "Checking out ${repoUrl}, branch=${repoBranch}"
+          script.checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: repoBranch]], 
+                          userRemoteConfigs: [[credentialsId: credentialsId, url: repoUrl]]]
+          
+          // Invoke body in the folder
+          body();
+
+          // Flush the directory again
+          script.deleteDir()
+        }
+  }
+
 
   public Object fromSVN(String libPath, String repoUrl = DEFAULT_REPO_URL,  
     String credentialsId = null, labelExpression = '') {
